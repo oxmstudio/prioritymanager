@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { usePlanner } from '../lib/store';
 
 const links = [
@@ -13,15 +13,48 @@ const links = [
   { href: '/goals', label: 'Goals' },
   { href: '/someday', label: 'Someday' },
   { href: '/review', label: 'Review' },
-  { href: 'https://mbswebapp.vercel.app/', label: 'Statistics', external: true },
+  {
+    href: 'https://mbswebapp-dr8tmxi5a-brandonxgilliams-projects.vercel.app/',
+    label: 'Statistics',
+    external: true,
+  },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { state, isLoaded } = usePlanner();
+  const [selectedHref, setSelectedHref] = useState(pathname);
 
   const activeTasks = state.tasks.filter((task) => task.status === 'active').length;
   const mindTraffic = state.triageItems.filter((item) => item.decision !== 'delete').length;
+
+  useEffect(() => {
+    setSelectedHref(pathname);
+  }, [pathname]);
+
+  const dropdownOptions = useMemo(
+    () =>
+      links.map((link) => ({
+        ...link,
+        optionLabel: link.href === '/triage' ? `${link.label} (${mindTraffic})` : link.label,
+      })),
+    [mindTraffic],
+  );
+
+  function handleNavigate(nextHref: string) {
+    const target = links.find((link) => link.href === nextHref);
+    if (!target) return;
+
+    if (target.external) {
+      window.open(target.href, '_blank', 'noopener,noreferrer');
+      setSelectedHref(pathname);
+      return;
+    }
+
+    setSelectedHref(target.href);
+    router.push(target.href);
+  }
 
   return (
     <div className="shell">
@@ -31,37 +64,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p>One plan. Clear mind. Right priorities.</p>
         </div>
 
-        <nav className="nav">
-          {links.map((link) => {
-            const isExternal = Boolean(link.external);
-            const isActive = !isExternal && pathname === link.href;
-            const className = `nav-link ${isActive ? 'active' : ''}`;
-            const content = (
-              <>
-                <span>{link.label}</span>
-                {link.href === '/triage' ? <span className="small">{mindTraffic}</span> : null}
-              </>
-            );
+        <div className="nav-dropdown-wrap">
+          <label className="label" htmlFor="planner-nav">
+            Workspace
+            <select
+              id="planner-nav"
+              className="select nav-dropdown"
+              value={selectedHref}
+              onChange={(event) => handleNavigate(event.target.value)}
+            >
+              {dropdownOptions.map((link) => (
+                <option key={link.href} value={link.href}>
+                  {link.optionLabel}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
-            return isExternal ? (
-              <a
-                key={link.href}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={className}
-              >
-                {content}
-              </a>
-            ) : (
-              <Link key={link.href} href={link.href} className={className}>
-                {content}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="sidebar-footer">
+        <div className="sidebar-footer speech-bubble speech-bubble-small">
           <strong>Today&apos;s Formula</strong>
           <div className="stack small">
             <span>Right task</span>
@@ -77,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <main className="content-wrap">
         {!isLoaded ? (
-          <div className="panel panel-inner stack">
+          <div className="panel panel-inner stack speech-bubble">
             <div className="kicker">Loading</div>
             <h2 className="card-title">Opening your planner...</h2>
             <p className="card-subtitle">A quick breath while the local workspace is restored.</p>
