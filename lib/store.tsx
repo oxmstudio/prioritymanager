@@ -2,14 +2,18 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { nowIso, todayIso } from './date';
-import { normalizeSeedState } from './seed';
+import { isPlannerStateShape, normalizePlannerState, normalizeSeedState } from './seed';
 import type {
   Appointment,
+  CommitmentOutcome,
   CommunicationEntry,
   Contact,
+  DelegationItem,
   Goal,
   PlannerState,
+  PlanningProfile,
   Priority,
+  RoleProfile,
   Scorecard,
   SomedayItem,
   Task,
@@ -36,10 +40,8 @@ function readLocalState(): { state: PlannerState; hasLocalData: boolean } {
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return { state: normalizeSeedState(), hasLocalData: false };
-    }
-    return { state: JSON.parse(raw) as PlannerState, hasLocalData: true };
+    if (!raw) return { state: normalizeSeedState(), hasLocalData: false };
+    return { state: normalizePlannerState(JSON.parse(raw) as unknown), hasLocalData: true };
   } catch {
     return { state: normalizeSeedState(), hasLocalData: false };
   }
@@ -48,8 +50,11 @@ function readLocalState(): { state: PlannerState; hasLocalData: boolean } {
 interface PlannerContextValue {
   state: PlannerState;
   isLoaded: boolean;
+  updatePlanningProfile: (input: PlanningProfile) => void;
+  addRole: (input: Omit<RoleProfile, 'id'>) => void;
   addAppointment: (input: Omit<Appointment, 'id'>) => void;
   addTask: (input: Omit<Task, 'id' | 'status'> & { status?: Task['status'] }) => string;
+  updateTask: (taskId: string, patch: Partial<Task>) => void;
   toggleTaskComplete: (taskId: string) => void;
   scheduleTaskDate: (taskId: string, date: string) => void;
   addTriageDecision: (input: {
@@ -59,6 +64,7 @@ interface PlannerContextValue {
     delegatedTo?: string;
     priority?: Priority;
     title?: string;
+    quadrant?: TriageItem['quadrant'];
   }) => void;
   addContact: (input: Omit<Contact, 'id'>) => string;
   addCommunicationEntry: (input: Omit<CommunicationEntry, 'id' | 'linkedTaskId'>) => void;
@@ -67,6 +73,9 @@ interface PlannerContextValue {
   toggleGoalActive: (goalId: string) => void;
   addSomedayItem: (input: Omit<SomedayItem, 'id' | 'createdAt'>) => void;
   activateSomedayToTask: (itemId: string, date: string) => void;
+  addDelegationItem: (input: Omit<DelegationItem, 'id'>) => void;
+  updateDelegationItem: (id: string, patch: Partial<DelegationItem>) => void;
+  addCommitmentOutcome: (input: Omit<CommitmentOutcome, 'id'>) => void;
   setScorecard: (scorecard: Scorecard) => void;
   exportState: () => string;
   importState: (raw: string) => { ok: boolean; message: string };
@@ -91,7 +100,7 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const payload = (await response.json()) as PlannerApiResponse;
           if (payload.source === 'blob' || !local.hasLocalData) {
-            nextState = payload.state;
+            nextState = normalizePlannerState(payload.state);
           }
         }
       } catch {
@@ -105,7 +114,6 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     }
 
     void bootstrap();
-
     return () => {
       isCancelled = true;
     };
@@ -117,16 +125,14 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
-      // Ignore local persistence issues and continue with server-backed save.
+      // ignore
     }
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
       void fetch('/api/planner-state', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(state),
         cache: 'no-store',
         signal: controller.signal,
@@ -142,26 +148,25 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<PlannerContextValue>(() => ({
     state,
     isLoaded,
+    updatePlanningProfile(input) {
+      setState((current) => ({ ...current, planningProfile: input }));
+    },
+    addRole(input) {
+      setState((current) => ({ ...current, roles: [{ ...input, id: makeId('role') }, ...current.roles] }));
+    },
     addAppointment(input) {
-      setState((current) => ({
-        ...current,
-        appointments: [...current.appointments, { ...input, id: makeId('apt') }],
-      }));
+      setState((current) => ({ ...current, appointments: [...current.appointments, { ...input, id: makeId('apt') }] }));
     },
     addTask(input) {
       const id = makeId('task');
       setState((current) => ({
         ...current,
-        tasks: [
-          ...current.tasks,
-          {
-            ...input,
-            id,
-            status: input.status ?? 'active',
-          },
-        ],
+        tasks: [...current.tasks, { ...input, id, status: input.status ?? 'active', stage: input.stage ?? 'doing' }],
       }));
       return id;
+    },
+    updateTask(taskId, patch) {
+      setState((current) => ({ ...current, tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, ...patch } : task)) }));
     },
     toggleTaskComplete(taskId) {
       setState((current) => ({
@@ -169,19 +174,12 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         tasks: current.tasks.map((task) => {
           if (task.id !== taskId) return task;
           const isCompleting = task.status !== 'completed';
-          return {
-            ...task,
-            status: isCompleting ? 'completed' : 'active',
-            completedAt: isCompleting ? nowIso() : undefined,
-          };
+          return { ...task, status: isCompleting ? 'completed' : 'active', completedAt: isCompleting ? nowIso() : undefined };
         }),
       }));
     },
     scheduleTaskDate(taskId, date) {
-      setState((current) => ({
-        ...current,
-        tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, date } : task)),
-      }));
+      setState((current) => ({ ...current, tasks: current.tasks.map((task) => (task.id === taskId ? { ...task, date } : task)) }));
     },
     addTriageDecision(input) {
       const triageId = makeId('triage');
@@ -192,17 +190,12 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         decision: input.decision,
         activationDate: input.activationDate,
         delegatedTo: input.delegatedTo,
+        quadrant: input.quadrant,
       };
 
       setState((current) => {
-        const nextState: PlannerState = {
-          ...current,
-          triageItems: [baseItem, ...current.triageItems],
-        };
-
-        if (input.decision === 'delete') {
-          return nextState;
-        }
+        const nextState: PlannerState = { ...current, triageItems: [baseItem, ...current.triageItems] };
+        if (input.decision === 'delete') return nextState;
 
         const taskId = makeId('task');
         const task: Task = {
@@ -216,11 +209,13 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
           sourceId: triageId,
           delegatedTo: input.delegatedTo,
           followUpDate: input.activationDate,
+          stage: input.decision === 'delegate' ? 'delivering' : 'doing',
+          workType: input.decision === 'delegate' ? 'project' : 'operational',
+          dependencyType: 'independent',
+          quadrant: input.quadrant,
         };
 
-        nextState.triageItems = nextState.triageItems.map((item) =>
-          item.id === triageId ? { ...item, resultingTaskId: taskId } : item,
-        );
+        nextState.triageItems = nextState.triageItems.map((item) => (item.id === triageId ? { ...item, resultingTaskId: taskId } : item));
         nextState.tasks = [task, ...current.tasks];
         return nextState;
       });
@@ -229,65 +224,29 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
       const id = makeId('contact');
       setState((current) => ({
         ...current,
-        contacts: [...current.contacts, { ...input, id }].sort((a, b) =>
-          `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`),
-        ),
+        contacts: [...current.contacts, { ...input, id }].sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)),
       }));
       return id;
     },
     addCommunicationEntry(input) {
-      const entry: CommunicationEntry = {
-        ...input,
-        id: makeId('comm'),
-      };
-      setState((current) => ({
-        ...current,
-        communicationEntries: [entry, ...current.communicationEntries],
-      }));
+      setState((current) => ({ ...current, communicationEntries: [{ ...input, id: makeId('comm') }, ...current.communicationEntries] }));
     },
     createFollowUpTask(entryId, title, date, priority) {
       const taskId = makeId('task');
       setState((current) => ({
         ...current,
-        tasks: [
-          {
-            id: taskId,
-            title,
-            date,
-            priority,
-            status: 'active',
-            sourceType: 'communication',
-            sourceId: entryId,
-          },
-          ...current.tasks,
-        ],
-        communicationEntries: current.communicationEntries.map((entry) =>
-          entry.id === entryId ? { ...entry, linkedTaskId: taskId, followUpDate: date } : entry,
-        ),
+        tasks: [{ id: taskId, title, date, priority, status: 'active', sourceType: 'communication', sourceId: entryId, stage: 'delivering', workType: 'operational', dependencyType: 'independent' }, ...current.tasks],
+        communicationEntries: current.communicationEntries.map((entry) => (entry.id === entryId ? { ...entry, linkedTaskId: taskId, followUpDate: date } : entry)),
       }));
     },
     addGoal(input) {
-      setState((current) => ({
-        ...current,
-        goals: [{ ...input, id: makeId('goal'), active: input.active ?? true }, ...current.goals],
-      }));
+      setState((current) => ({ ...current, goals: [{ ...input, id: makeId('goal'), active: input.active ?? true, stage: input.stage ?? 'deciding' }, ...current.goals] }));
     },
     toggleGoalActive(goalId) {
-      setState((current) => ({
-        ...current,
-        goals: current.goals.map((goal) =>
-          goal.id === goalId ? { ...goal, active: !goal.active } : goal,
-        ),
-      }));
+      setState((current) => ({ ...current, goals: current.goals.map((goal) => (goal.id === goalId ? { ...goal, active: !goal.active } : goal)) }));
     },
     addSomedayItem(input) {
-      setState((current) => ({
-        ...current,
-        somedayItems: [
-          { ...input, id: makeId('some'), createdAt: nowIso() },
-          ...current.somedayItems,
-        ],
-      }));
+      setState((current) => ({ ...current, somedayItems: [{ ...input, id: makeId('some'), createdAt: nowIso() }, ...current.somedayItems] }));
     },
     activateSomedayToTask(itemId, date) {
       setState((current) => {
@@ -296,37 +255,25 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
         const taskId = makeId('task');
         return {
           ...current,
-          tasks: [
-            {
-              id: taskId,
-              title: somedayItem.title,
-              description: somedayItem.note,
-              date,
-              priority: 'B',
-              status: 'active',
-              sourceType: 'someday',
-              sourceId: itemId,
-            },
-            ...current.tasks,
-          ],
-          somedayItems: current.somedayItems.map((item) =>
-            item.id === itemId ? { ...item, activatedTaskId: taskId } : item,
-          ),
+          tasks: [{ id: taskId, title: somedayItem.title, description: somedayItem.note, date, priority: 'B', status: 'active', sourceType: 'someday', sourceId: itemId, stage: 'deciding', workType: 'project', dependencyType: 'independent', linkedRoleId: somedayItem.linkedRoleId }, ...current.tasks],
+          somedayItems: current.somedayItems.map((item) => (item.id === itemId ? { ...item, activatedTaskId: taskId } : item)),
         };
       });
+    },
+    addDelegationItem(input) {
+      setState((current) => ({ ...current, delegationItems: [{ ...input, id: makeId('delegate') }, ...current.delegationItems] }));
+    },
+    updateDelegationItem(id, patch) {
+      setState((current) => ({ ...current, delegationItems: current.delegationItems.map((item) => (item.id === id ? { ...item, ...patch } : item)) }));
+    },
+    addCommitmentOutcome(input) {
+      setState((current) => ({ ...current, commitmentOutcomes: [{ ...input, id: makeId('outcome') }, ...current.commitmentOutcomes] }));
     },
     setScorecard(scorecard) {
       setState((current) => {
         const existing = current.scorecards.find((item) => item.date === scorecard.date);
-        if (!existing) {
-          return { ...current, scorecards: [scorecard, ...current.scorecards] };
-        }
-        return {
-          ...current,
-          scorecards: current.scorecards.map((item) =>
-            item.date === scorecard.date ? scorecard : item,
-          ),
-        };
+        if (!existing) return { ...current, scorecards: [scorecard, ...current.scorecards] };
+        return { ...current, scorecards: current.scorecards.map((item) => (item.date === scorecard.date ? scorecard : item)) };
       });
     },
     exportState() {
@@ -334,8 +281,11 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
     },
     importState(raw) {
       try {
-        const parsed = JSON.parse(raw) as PlannerState;
-        setState(parsed);
+        const parsed = JSON.parse(raw) as unknown;
+        if (!isPlannerStateShape(parsed)) {
+          return { ok: false, message: 'Import failed. JSON does not match planner shape.' };
+        }
+        setState(normalizePlannerState(parsed));
         return { ok: true, message: 'Import complete.' };
       } catch {
         return { ok: false, message: 'Import failed. Please paste valid JSON.' };
@@ -351,8 +301,6 @@ export function PlannerProvider({ children }: { children: React.ReactNode }) {
 
 export function usePlanner(): PlannerContextValue {
   const context = useContext(PlannerContext);
-  if (!context) {
-    throw new Error('usePlanner must be used inside PlannerProvider');
-  }
+  if (!context) throw new Error('usePlanner must be used inside PlannerProvider');
   return context;
 }

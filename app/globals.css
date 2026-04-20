@@ -584,6 +584,24 @@ pre.code-block {
   bottom: -10px;
 }
 
+
+.workflow-active {
+  border-color: rgba(55, 85, 106, 0.34);
+  background: #eef4f8;
+}
+
+.nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.72);
+}
+
+.nav-link:hover {
+  background: white;
+}
+
 @media (max-width: 1080px) {
   .shell {
     grid-template-columns: 1fr;

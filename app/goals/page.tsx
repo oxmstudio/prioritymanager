@@ -1,5 +1,5 @@
-import { GoalsPage } from '../../components/GoalsPage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <GoalsPage />;
+  redirect('/deciding');
 }

@@ -1,5 +1,5 @@
-import { ReviewPage } from '../../components/ReviewPage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <ReviewPage />;
+  redirect('/delivering');
 }

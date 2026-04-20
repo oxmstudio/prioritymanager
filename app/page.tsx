@@ -1,5 +1,5 @@
-import { OverviewPage } from '../components/OverviewPage';
+import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  return <OverviewPage />;
+  redirect('/deciding');
 }
