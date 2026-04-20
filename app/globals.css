@@ -585,6 +585,27 @@ pre.code-block {
 }
 
 
+
+.accordion-trigger {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.62);
+  padding: 12px 14px;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+
+.accordion-trigger strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-heading);
+  color: var(--ink);
+}
+
 .workflow-active {
   border-color: rgba(55, 85, 106, 0.34);
   background: #eef4f8;
