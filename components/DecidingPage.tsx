@@ -8,10 +8,8 @@ import type { GoalType, Priority, Quadrant, TriageDecision } from '../lib/types'
 export function DecidingPage() {
   const { state, updatePlanningProfile, addRole, addGoal, toggleGoalActive, addTriageDecision, addSomedayItem, activateSomedayToTask } = usePlanner();
   const [openSection, setOpenSection] = useState<'identity' | 'goals' | 'classification' | 'triage' | 'someday' | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
-  function toggleSection(section: 'identity' | 'goals' | 'classification' | 'triage' | 'someday') {
-    setOpenSection((current) => (current === section ? null : section));
-  }
   const [profile, setProfile] = useState(state.planningProfile);
   const [roleName, setRoleName] = useState('');
   const [roleMission, setRoleMission] = useState('');
@@ -23,6 +21,10 @@ export function DecidingPage() {
   const [quadrant, setQuadrant] = useState<Quadrant>('Q2');
   const [priority, setPriority] = useState<Priority>('A');
   const [somedayTitle, setSomedayTitle] = useState('');
+
+  function toggleSection(section: 'identity' | 'goals' | 'classification' | 'triage' | 'someday') {
+    setOpenSection((current) => (current === section ? null : section));
+  }
 
   const goalCounts = useMemo(() => ({
     annual: state.goals.filter((g) => g.type === 'annual').length,
@@ -36,8 +38,46 @@ export function DecidingPage() {
           <h2>Deciding</h2>
           <p>Define who you are, what matters, and what should enter execution.</p>
         </div>
-        <div className="badge">Upstream planning layer</div>
+        <div className="row wrap">
+          <button
+            type="button"
+            className="gear-button"
+            aria-expanded={showSettings}
+            aria-label="Open deciding settings"
+            title="Settings"
+            onClick={() => setShowSettings((current) => !current)}
+          >
+            ⚙️
+          </button>
+          <div className="badge">Upstream planning layer</div>
+        </div>
       </div>
+
+      {showSettings ? (
+        <section className="panel panel-inner stack">
+          <div className="row spread wrap">
+            <div>
+              <div className="kicker">Settings</div>
+              <h3 className="card-title">Role Identity Setup</h3>
+            </div>
+            <button className="button-ghost" onClick={() => setShowSettings(false)}>Close</button>
+          </div>
+          <label className="label">Mission<input className="field" value={profile.mission} onChange={(e) => setProfile({ ...profile, mission: e.target.value })} /></label>
+          <label className="label">Purpose<input className="field" value={profile.purpose} onChange={(e) => setProfile({ ...profile, purpose: e.target.value })} /></label>
+          <label className="label">Values<textarea className="textarea" rows={3} value={profile.values} onChange={(e) => setProfile({ ...profile, values: e.target.value })} /></label>
+          <label className="label">Priority themes (comma separated)
+            <input className="field" value={profile.priorityThemes.join(', ')} onChange={(e) => setProfile({ ...profile, priorityThemes: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
+          </label>
+          <div className="grid-2">
+            <input className="field" placeholder="Role name" value={roleName} onChange={(e) => setRoleName(e.target.value)} />
+            <input className="field" placeholder="Role mission" value={roleMission} onChange={(e) => setRoleMission(e.target.value)} />
+          </div>
+          <div className="row wrap">
+            <button className="button" onClick={() => updatePlanningProfile(profile)}>Save planning profile</button>
+            <button className="button-ghost" onClick={() => { if (!roleName.trim()) return; addRole({ name: roleName.trim(), mission: roleMission.trim() }); setRoleName(''); setRoleMission(''); }}>Add role</button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="stack">
         <article className="panel panel-inner stack">
@@ -50,19 +90,9 @@ export function DecidingPage() {
           </button>
           {openSection === 'identity' ? (
             <div className="stack">
-              <label className="label">Mission<input className="field" value={profile.mission} onChange={(e) => setProfile({ ...profile, mission: e.target.value })} /></label>
-              <label className="label">Purpose<input className="field" value={profile.purpose} onChange={(e) => setProfile({ ...profile, purpose: e.target.value })} /></label>
-              <label className="label">Values<textarea className="textarea" rows={3} value={profile.values} onChange={(e) => setProfile({ ...profile, values: e.target.value })} /></label>
-              <label className="label">Priority themes (comma separated)
-                <input className="field" value={profile.priorityThemes.join(', ')} onChange={(e) => setProfile({ ...profile, priorityThemes: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
-              </label>
-              <div className="grid-2">
-                <input className="field" placeholder="Role name" value={roleName} onChange={(e) => setRoleName(e.target.value)} />
-                <input className="field" placeholder="Role mission" value={roleMission} onChange={(e) => setRoleMission(e.target.value)} />
-              </div>
-              <div className="row wrap">
-                <button className="button" onClick={() => updatePlanningProfile(profile)}>Save planning profile</button>
-                <button className="button-ghost" onClick={() => { if (!roleName.trim()) return; addRole({ name: roleName.trim(), mission: roleMission.trim() }); setRoleName(''); setRoleMission(''); }}>Add role</button>
+              <div className="item">
+                <h4>Identity settings moved to ⚙️</h4>
+                <p>Use the gear icon at the top of this page to edit mission, values, and add new role identities.</p>
               </div>
               <div className="item-list">
                 {state.roles.map((role) => <div key={role.id} className="item"><strong>{role.name}</strong><p>{role.mission || 'No mission set yet.'}</p></div>)}
