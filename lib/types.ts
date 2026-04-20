@@ -1,7 +1,7 @@
 export type Priority = 'A' | 'B';
 export type TaskStatus = 'active' | 'completed' | 'delegated' | 'deleted';
 export type TriageDecision = 'do' | 'date' | 'delegate' | 'delete';
-export type GoalType = 'annual' | 'monthly';
+export type GoalType = 'daily' | 'monthly' | 'quarterly' | 'annual';
 export type WorkType = 'operational' | 'project';
 export type DependencyType = 'independent' | 'dependent' | 'blocks';
 export type Quadrant = 'Q1' | 'Q2' | 'Q3' | 'Q4';

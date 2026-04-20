@@ -14,8 +14,10 @@ export function GoalsPage() {
   const [relevant, setRelevant] = useState('');
   const [trackable, setTrackable] = useState('');
 
-  const annualGoals = state.goals.filter((goal) => goal.type === 'annual');
+  const dailyGoals = state.goals.filter((goal) => goal.type === 'daily');
   const monthlyGoals = state.goals.filter((goal) => goal.type === 'monthly');
+  const quarterlyGoals = state.goals.filter((goal) => goal.type === 'quarterly');
+  const annualGoals = state.goals.filter((goal) => goal.type === 'annual');
 
   function submit() {
     if (!title.trim()) return;
@@ -44,8 +46,10 @@ export function GoalsPage() {
           <p>Keep the active list narrow. This page is for a few high-impact items, not a warehouse of noble intentions.</p>
         </div>
         <div className="row wrap">
-          <span className="badge">Annual {annualGoals.length}</span>
+          <span className="badge">Daily {dailyGoals.length}</span>
           <span className="badge">Monthly {monthlyGoals.length}</span>
+          <span className="badge">Quarterly {quarterlyGoals.length}</span>
+          <span className="badge">Annual {annualGoals.length}</span>
         </div>
       </div>
 
@@ -59,8 +63,10 @@ export function GoalsPage() {
             <label className="label">
               Type
               <select className="select" value={type} onChange={(event) => setType(event.target.value as GoalType)}>
-                <option value="annual">Annual strategy</option>
+                <option value="daily">Daily objective</option>
                 <option value="monthly">Monthly goal</option>
+                <option value="quarterly">Quarterly objective</option>
+                <option value="annual">Annual strategy</option>
               </select>
             </label>
             <label className="label">
@@ -92,6 +98,54 @@ export function GoalsPage() {
         </div>
 
         <div className="stack">
+          <div className="panel panel-inner stack">
+            <div>
+              <div className="kicker">Daily objectives</div>
+              <h3 className="card-title">Small commitments for today</h3>
+            </div>
+            {dailyGoals.length === 0 ? (
+              <div className="empty">No daily objectives yet.</div>
+            ) : (
+              <div className="item-list">
+                {dailyGoals.map((goal) => (
+                  <div className="item" key={goal.id}>
+                    <div className="row spread wrap">
+                      <h4>{goal.title}</h4>
+                      <button className={`tab ${goal.active ? 'active' : ''}`} onClick={() => toggleGoalActive(goal.id)}>
+                        {goal.active ? 'Active' : 'Paused'}
+                      </button>
+                    </div>
+                    <p>{goal.specific}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="panel panel-inner stack">
+            <div>
+              <div className="kicker">Quarterly objectives</div>
+              <h3 className="card-title">90-day progress bets</h3>
+            </div>
+            {quarterlyGoals.length === 0 ? (
+              <div className="empty">No quarterly objectives yet.</div>
+            ) : (
+              <div className="item-list">
+                {quarterlyGoals.map((goal) => (
+                  <div className="item" key={goal.id}>
+                    <div className="row spread wrap">
+                      <h4>{goal.title}</h4>
+                      <button className={`tab ${goal.active ? 'active' : ''}`} onClick={() => toggleGoalActive(goal.id)}>
+                        {goal.active ? 'Active' : 'Paused'}
+                      </button>
+                    </div>
+                    <p>{goal.measurable}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="panel panel-inner stack">
             <div>
               <div className="kicker">Annual strategies</div>

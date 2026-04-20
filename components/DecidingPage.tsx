@@ -27,8 +27,10 @@ export function DecidingPage() {
   }
 
   const goalCounts = useMemo(() => ({
-    annual: state.goals.filter((g) => g.type === 'annual').length,
+    daily: state.goals.filter((g) => g.type === 'daily').length,
     monthly: state.goals.filter((g) => g.type === 'monthly').length,
+    quarterly: state.goals.filter((g) => g.type === 'quarterly').length,
+    annual: state.goals.filter((g) => g.type === 'annual').length,
   }), [state.goals]);
 
   return (
@@ -111,9 +113,9 @@ export function DecidingPage() {
           </button>
           {openSection === 'goals' ? (
             <div className="stack">
-              <div className="small">Annual {goalCounts.annual} · Monthly {goalCounts.monthly}</div>
+              <div className="small">Daily {goalCounts.daily} · Monthly {goalCounts.monthly} · Quarterly {goalCounts.quarterly} · Annual {goalCounts.annual}</div>
               <div className="grid-3">
-                <select className="select" value={goalType} onChange={(e) => setGoalType(e.target.value as GoalType)}><option value="monthly">Monthly</option><option value="annual">Annual</option></select>
+                <select className="select" value={goalType} onChange={(e) => setGoalType(e.target.value as GoalType)}><option value="daily">Daily</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select>
                 <select className="select" value={goalRoleId} onChange={(e) => setGoalRoleId(e.target.value)}><option value="">Link to role (optional)</option>{state.roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
                 <input className="field" value={goalTitle} placeholder="Goal title" onChange={(e) => setGoalTitle(e.target.value)} />
               </div>
