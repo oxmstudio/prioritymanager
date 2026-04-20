@@ -1,5 +1,5 @@
-import { MonthPage } from '../../components/MonthPage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <MonthPage />;
+  redirect('/doing');
 }
