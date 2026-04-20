@@ -14,7 +14,7 @@ const links = [
   { href: '/someday', label: 'Someday' },
   { href: '/review', label: 'Review' },
   {
-    href: 'https://mbswebapp-dr8tmxi5a-brandonxgilliams-projects.vercel.app/',
+    href: 'https://mbswebapp.vercel.app/',
     label: 'Statistics',
     external: true,
   },
