@@ -13,7 +13,7 @@ const links = [
   { href: '/goals', label: 'Goals' },
   { href: '/someday', label: 'Someday' },
   { href: '/review', label: 'Review' },
-  { href: 'https://mbswebapp-dr8tmxi5a-brandonxgilliams-projects.vercel.app/', label: 'Statistics', external: true },
+  { href: 'https://mbswebapp.vercel.app/', label: 'Statistics', external: true },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
