@@ -13,6 +13,7 @@ const links = [
   { href: '/goals', label: 'Goals' },
   { href: '/someday', label: 'Someday' },
   { href: '/review', label: 'Review' },
+  { href: 'https://mbswebapp-gys5.vercel.app/', label: 'Statistics', external: true },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -32,11 +33,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="nav">
           {links.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link key={link.href} href={link.href} className={`nav-link ${isActive ? 'active' : ''}`}>
+            const isExternal = Boolean(link.external);
+            const isActive = !isExternal && pathname === link.href;
+            const className = `nav-link ${isActive ? 'active' : ''}`;
+            const content = (
+              <>
                 <span>{link.label}</span>
                 {link.href === '/triage' ? <span className="small">{mindTraffic}</span> : null}
+              </>
+            );
+
+            return isExternal ? (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={className}
+              >
+                {content}
+              </a>
+            ) : (
+              <Link key={link.href} href={link.href} className={className}>
+                {content}
               </Link>
             );
           })}
