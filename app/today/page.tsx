@@ -1,5 +1,5 @@
-import { TodayPage } from '../../components/TodayPage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <TodayPage />;
+  redirect('/doing');
 }

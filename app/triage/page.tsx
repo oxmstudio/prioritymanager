@@ -1,5 +1,5 @@
-import { TriagePage } from '../../components/TriagePage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <TriagePage />;
+  redirect('/deciding');
 }
