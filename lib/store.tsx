@@ -18,9 +18,31 @@ import type {
 } from './types';
 
 const STORAGE_KEY = 'priority-manager-mvp-state';
+const SAVE_DEBOUNCE_MS = 800;
+
+interface PlannerApiResponse {
+  state: PlannerState;
+  source: 'blob' | 'seed';
+}
 
 function makeId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function readLocalState(): { state: PlannerState; hasLocalData: boolean } {
+  if (typeof window === 'undefined') {
+    return { state: normalizeSeedState(), hasLocalData: false };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return { state: normalizeSeedState(), hasLocalData: false };
+    }
+    return { state: JSON.parse(raw) as PlannerState, hasLocalData: true };
+  } catch {
+    return { state: normalizeSeedState(), hasLocalData: false };
+  }
 }
 
 interface PlannerContextValue {
@@ -53,34 +75,68 @@ interface PlannerContextValue {
 
 const PlannerContext = createContext<PlannerContextValue | undefined>(undefined);
 
-function readInitialState(): PlannerState {
-  if (typeof window === 'undefined') {
-    return normalizeSeedState();
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return normalizeSeedState();
-    }
-    return JSON.parse(raw) as PlannerState;
-  } catch {
-    return normalizeSeedState();
-  }
-}
-
 export function PlannerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PlannerState>(normalizeSeedState());
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    setState(readInitialState());
-    setIsLoaded(true);
+    let isCancelled = false;
+
+    async function bootstrap() {
+      const local = readLocalState();
+      let nextState = local.state;
+
+      try {
+        const response = await fetch('/api/planner-state', { cache: 'no-store' });
+        if (response.ok) {
+          const payload = (await response.json()) as PlannerApiResponse;
+          if (payload.source === 'blob' || !local.hasLocalData) {
+            nextState = payload.state;
+          }
+        }
+      } catch {
+        nextState = local.state;
+      }
+
+      if (!isCancelled) {
+        setState(nextState);
+        setIsLoaded(true);
+      }
+    }
+
+    void bootstrap();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Ignore local persistence issues and continue with server-backed save.
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      void fetch('/api/planner-state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(state),
+        cache: 'no-store',
+        signal: controller.signal,
+      }).catch(() => undefined);
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
   }, [isLoaded, state]);
 
   const value = useMemo<PlannerContextValue>(() => ({
