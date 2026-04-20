@@ -15,6 +15,8 @@
   --radius-sm: 14px;
   --font-body: Arial, Helvetica, sans-serif;
   --font-heading: Georgia, 'Times New Roman', serif;
+  --bubble: #188bf6;
+  --bubble-soft: #e8f3ff;
 }
 
 * {
@@ -106,6 +108,16 @@ textarea {
   background: rgba(255, 255, 255, 0.72);
   color: var(--ink);
   border-color: var(--line);
+}
+
+.nav-dropdown-wrap {
+  margin-bottom: 18px;
+  padding: 0 4px;
+}
+
+.nav-dropdown {
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .sidebar-footer {
@@ -527,6 +539,49 @@ pre.code-block {
   border-radius: 18px;
   overflow: auto;
   font-size: 0.86rem;
+}
+
+.speech-bubble {
+  position: relative;
+  background: linear-gradient(180deg, #1f96ff, var(--bubble));
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.speech-bubble .kicker,
+.speech-bubble .card-subtitle,
+.speech-bubble .small,
+.speech-bubble p,
+.speech-bubble span,
+.speech-bubble .label,
+.speech-bubble strong,
+.speech-bubble h2,
+.speech-bubble h3,
+.speech-bubble h4 {
+  color: #ffffff;
+}
+
+.speech-bubble .hr {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  bottom: -12px;
+  width: 22px;
+  height: 22px;
+  background: var(--bubble);
+  border-bottom-left-radius: 18px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.speech-bubble-small::after {
+  width: 18px;
+  height: 18px;
+  left: 16px;
+  bottom: -10px;
 }
 
 @media (max-width: 1080px) {
